@@ -65,6 +65,12 @@ The Docker backend applies `--network none` for `network.mode = "deny"` and uses
 
 See [docs/backend-enforcement-matrix.md](docs/backend-enforcement-matrix.md) and [docs/threat-model.md](docs/threat-model.md) before relying on AgentGuard for a security boundary.
 
+## Continuous releases
+
+Every successful push or merge to **main** creates a unique GitHub prerelease with CLI archives, desktop packages for Linux, macOS, and Windows, and SHA-256 checksums. Each release describes every attached file and lists the commits since the previous main build.
+
+These automated packages are unsigned and are not notarized. See [docs/release-packages.md](docs/release-packages.md) for the package list and platform details.
+
 ## Development
 
 ```bash

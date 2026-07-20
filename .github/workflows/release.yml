@@ -1,0 +1,238 @@
+name: Release main build
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  PNPM_VERSION: 11.15.1
+
+jobs:
+  cli:
+    name: Package CLI (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+            package: agentguard-cli-linux-x86_64.tar.gz
+          - os: macos-latest
+            platform: macos-arm64
+            package: agentguard-cli-macos-arm64.tar.gz
+          - os: windows-latest
+            platform: windows-x86_64
+            package: agentguard-cli-windows-x86_64.zip
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.88
+      - name: Build CLI
+        run: cargo build --locked --release -p agentguard-cli
+      - name: Create CLI package
+        shell: bash
+        env:
+          PACKAGE_NAME: ${{ matrix.package }}
+        run: |
+          mkdir -p package dist
+          cp LICENSE README.md package/
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp target/release/agentguard.exe package/
+            (cd package && 7z a "../dist/$PACKAGE_NAME" ./*)
+          else
+            cp target/release/agentguard package/
+            chmod +x package/agentguard
+            tar -C package -czf "dist/$PACKAGE_NAME" .
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-cli-${{ matrix.platform }}
+          path: dist/${{ matrix.package }}
+          if-no-files-found: error
+          retention-days: 1
+
+  desktop:
+    name: Package desktop (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: windows-x86_64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - uses: dtolnay/rust-toolchain@1.88
+      - name: Install Linux Tauri dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Enable pnpm
+        shell: bash
+        run: corepack enable && corepack prepare pnpm@$PNPM_VERSION --activate
+      - name: Install desktop dependencies
+        shell: bash
+        run: pnpm --dir apps/desktop install --frozen-lockfile
+      - name: Build desktop packages
+        shell: bash
+        run: pnpm --dir apps/desktop exec tauri build
+      - name: Collect desktop packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_root="apps/desktop/src-tauri/target/release/bundle"
+          mkdir -p dist
+
+          copy_one() {
+            package_path=$(find "$bundle_root" -type f -name "$1" -print -quit)
+            if [[ -z "$package_path" ]]; then
+              echo "Required package not found: $1" >&2
+              exit 1
+            fi
+            cp "$package_path" "dist/$2"
+          }
+
+          case "$RUNNER_OS" in
+            Linux)
+              copy_one '*.AppImage' agentguard-desktop-linux-x86_64.AppImage
+              copy_one '*.deb' agentguard-desktop-linux-x86_64.deb
+              copy_one '*.rpm' agentguard-desktop-linux-x86_64.rpm
+              ;;
+            macOS)
+              copy_one '*.dmg' agentguard-desktop-macos-arm64.dmg
+              ;;
+            Windows)
+              copy_one '*.msi' agentguard-desktop-windows-x86_64.msi
+              copy_one '*-setup.exe' agentguard-desktop-windows-x86_64-setup.exe
+              ;;
+          esac
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-desktop-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish GitHub release
+    needs:
+      - cli
+      - desktop
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify packages and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            agentguard-cli-linux-x86_64.tar.gz
+            agentguard-cli-macos-arm64.tar.gz
+            agentguard-cli-windows-x86_64.zip
+            agentguard-desktop-linux-x86_64.AppImage
+            agentguard-desktop-linux-x86_64.deb
+            agentguard-desktop-linux-x86_64.rpm
+            agentguard-desktop-macos-arm64.dmg
+            agentguard-desktop-windows-x86_64.msi
+            agentguard-desktop-windows-x86_64-setup.exe
+          )
+          for package_name in "${expected[@]}"; do
+            test -s "release-assets/$package_name"
+          done
+          (
+            cd release-assets
+            sha256sum "${expected[@]}" > SHA256SUMS.txt
+          )
+      - name: Write release notes
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha=$(git rev-parse --short=7 "$GITHUB_SHA")
+          tag="main-$GITHUB_RUN_NUMBER-$short_sha"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+          previous_tag=""
+          while IFS= read -r candidate_tag; do
+            if [[ "$candidate_tag" != "$tag" ]]; then
+              previous_tag="$candidate_tag"
+              break
+            fi
+          done < <(git tag --list 'main-*' --sort=-creatordate)
+          if [[ -n "$previous_tag" ]]; then
+            change_range="$previous_tag..$GITHUB_SHA"
+          else
+            change_range="$GITHUB_SHA"
+          fi
+
+          {
+            echo "Automated, unsigned build from the main branch."
+            echo
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Workflow run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "## Packages"
+            echo
+            echo "| File | Description |"
+            echo "| --- | --- |"
+            echo "| **agentguard-cli-linux-x86_64.tar.gz** | AgentGuard CLI for 64-bit Linux. |"
+            echo "| **agentguard-cli-macos-arm64.tar.gz** | AgentGuard CLI for Apple silicon Macs. |"
+            echo "| **agentguard-cli-windows-x86_64.zip** | AgentGuard CLI for 64-bit Windows. |"
+            echo "| **agentguard-desktop-linux-x86_64.AppImage** | Portable Linux desktop application. |"
+            echo "| **agentguard-desktop-linux-x86_64.deb** | Desktop package for Debian and Ubuntu systems. |"
+            echo "| **agentguard-desktop-linux-x86_64.rpm** | Desktop package for RPM-based Linux systems. |"
+            echo "| **agentguard-desktop-macos-arm64.dmg** | macOS disk image for Apple silicon Macs. |"
+            echo "| **agentguard-desktop-windows-x86_64.msi** | Windows MSI installer. |"
+            echo "| **agentguard-desktop-windows-x86_64-setup.exe** | Windows NSIS installer. |"
+            echo "| **SHA256SUMS.txt** | SHA-256 checksums for every package above. |"
+            echo
+            echo "## Changes"
+            echo
+            git log --pretty='- %s (%h)' "$change_range"
+            echo
+            echo "## Important"
+            echo
+            echo "These continuous-build packages are not code-signed or notarized. Review the commit and checksums before running them."
+          } > release-notes.md
+      - name: Publish release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          title="AgentGuard main build #$GITHUB_RUN_NUMBER ($(git rev-parse --short=7 "$GITHUB_SHA"))"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+            gh release edit "$RELEASE_TAG" --title "$title" --notes-file release-notes.md --prerelease --latest=false
+          else
+            gh release create "$RELEASE_TAG" release-assets/* \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              --notes-file release-notes.md \
+              --prerelease \
+              --latest=false
+          fi
