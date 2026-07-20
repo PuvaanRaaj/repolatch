@@ -1,0 +1,15 @@
+version = 1
+
+[filesystem]
+read = ["**"]
+write = ["**"]
+deny = [".env", ".env.*", "**/*.pem", "**/*.key"]
+
+[network]
+mode = "deny"
+
+[network.allow]
+hosts = []
+
+[commands]
+allow = ["sh -c if wget -q -T 3 -O- http://example.com; then exit 90; fi; test ! -e .env; printf docker-ok > docker-output.txt"]

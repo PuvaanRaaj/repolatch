@@ -1,0 +1,30 @@
+[package]
+name = "agentguard-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "agentguard"
+path = "src/main.rs"
+
+[dependencies]
+agentguard-core.workspace = true
+agentguard-git.workspace = true
+agentguard-policy.workspace = true
+agentguard-receipt.workspace = true
+agentguard-runtime.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+predicates.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

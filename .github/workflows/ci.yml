@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust (${{ matrix.check }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - fmt
+          - clippy
+          - test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88
+      - name: Cargo fmt
+        if: matrix.check == 'fmt'
+        run: cargo fmt --check
+      - name: Cargo clippy
+        if: matrix.check == 'clippy'
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Cargo test
+        if: matrix.check == 'test'
+        run: cargo test --workspace
+
+  desktop-quality:
+    name: Desktop quality (${{ matrix.check }})
+    if: ${{ hashFiles('apps/desktop/package.json') != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - lint
+          - typecheck
+          - test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm --dir apps/desktop install --frozen-lockfile
+      - name: Run check
+        run: pnpm --dir apps/desktop ${{ matrix.check }}
+
+  docker-e2e:
+    name: Docker isolation E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88
+      - name: Run ignored Docker isolation test
+        run: cargo test -p agentguard-cli --test cli docker_e2e_isolation -- --ignored --exact
+
+  desktop-tauri:
+    name: Desktop Tauri debug build (${{ matrix.os }})
+    if: ${{ hashFiles('apps/desktop/package.json') != '' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@1.88
+      - name: Install Linux Tauri dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Enable pnpm
+        shell: bash
+        run: corepack enable
+      - name: Install dependencies
+        shell: bash
+        run: pnpm --dir apps/desktop install --frozen-lockfile
+      - name: Build Tauri application
+        shell: bash
+        run: pnpm --dir apps/desktop exec tauri build --debug
