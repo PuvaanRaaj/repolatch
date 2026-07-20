@@ -21,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.88
+        with:
+          components: rustfmt, clippy
       - name: Cargo fmt
         if: matrix.check == 'fmt'
         run: cargo fmt --check
@@ -47,7 +49,7 @@ jobs:
         with:
           node-version: 22
       - name: Enable pnpm
-        run: corepack enable
+        run: corepack enable && corepack prepare pnpm@11.15.1 --activate
       - name: Install dependencies
         run: pnpm --dir apps/desktop install --frozen-lockfile
       - name: Run check
@@ -80,7 +82,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - name: Enable pnpm
         shell: bash
-        run: corepack enable
+        run: corepack enable && corepack prepare pnpm@11.15.1 --activate
       - name: Install dependencies
         shell: bash
         run: pnpm --dir apps/desktop install --frozen-lockfile
