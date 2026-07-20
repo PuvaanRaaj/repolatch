@@ -33,7 +33,6 @@ jobs:
 
   desktop-quality:
     name: Desktop quality (${{ matrix.check }})
-    if: ${{ hashFiles('apps/desktop/package.json') != '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -65,7 +64,6 @@ jobs:
 
   desktop-tauri:
     name: Desktop Tauri debug build (${{ matrix.os }})
-    if: ${{ hashFiles('apps/desktop/package.json') != '' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
