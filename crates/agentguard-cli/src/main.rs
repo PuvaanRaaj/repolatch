@@ -518,7 +518,7 @@ fn run_command(args: RunArgs) -> anyhow::Result<()> {
                         "workspace": workspace.root(),
                         "receipt": receipt_path,
                         "exit_code": outcome.exit_code,
-                        "status": format!("{:?}", status).to_ascii_lowercase(),
+                        "status": format!("{status:?}").to_ascii_lowercase(),
                     })
                 );
             } else {
