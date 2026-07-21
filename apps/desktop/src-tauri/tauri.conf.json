@@ -1,10 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AgentGuard",
+  "productName": "RepoLatch",
   "version": "0.1.0",
-  "identifier": "dev.agentguard.desktop",
+  "identifier": "dev.repolatch.desktop",
   "build": { "beforeDevCommand": "pnpm dev", "beforeBuildCommand": "pnpm build", "devUrl": "http://localhost:1420", "frontendDist": "../dist" },
-  "app": { "windows": [{ "title": "AgentGuard", "width": 1200, "height": 780, "minWidth": 900, "minHeight": 620 }], "security": { "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:" } },
+  "app": { "windows": [{ "title": "RepoLatch", "width": 1200, "height": 780, "minWidth": 900, "minHeight": 620 }], "security": { "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:" } },
   "bundle": {
     "active": true,
     "targets": "all",

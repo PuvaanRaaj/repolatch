@@ -63,7 +63,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.88
       - name: Run ignored Docker isolation test
-        run: cargo test -p agentguard-cli --test cli docker_e2e_isolation -- --ignored --exact
+        run: cargo test -p repolatch-cli --test cli docker_e2e_isolation -- --ignored --exact
 
   desktop-tauri:
     name: Desktop Tauri debug build (${{ matrix.os }})

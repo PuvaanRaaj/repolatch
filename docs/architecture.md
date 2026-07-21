@@ -1,39 +1,39 @@
-# AgentGuard architecture
+# RepoLatch architecture
 
 **Status:** Implemented MVP baseline (2026-07-20)
 
 ## Current system shape
 
-AgentGuard is a Cargo workspace with five library crates and one CLI crate. `apps/desktop` contains a separate Tauri Cargo workspace so Tauri can manage its platform-specific lockfile independently:
+RepoLatch is a Cargo workspace with five library crates and one CLI crate. `apps/desktop` contains a separate Tauri Cargo workspace so Tauri can manage its platform-specific lockfile independently:
 
 ```text
-agentguard-core
+repolatch-core
   ^        ^             ^
   |        |             |
-  |   agentguard-policy  agentguard-git
+  |   repolatch-policy  repolatch-git
   |        |             |
-  +--------+-------------+--- agentguard-receipt
+  +--------+-------------+--- repolatch-receipt
   |
-  +-------------------------- agentguard-runtime
+  +-------------------------- repolatch-runtime
                                   ^
-                            agentguard-cli
+                            repolatch-cli
                                   ^
                          apps/desktop/src-tauri
 ```
 
-`agentguard-cli` orchestrates policy parsing, workspace construction, source snapshots, baseline initialization, execution, diff summaries, and partial/final receipt writes. The desktop implements a narrow adapter over the same libraries and has passed a local Tauri debug build.
+`repolatch-cli` orchestrates policy parsing, workspace construction, source snapshots, baseline initialization, execution, diff summaries, and partial/final receipt writes. The desktop implements a narrow adapter over the same libraries and has passed a local Tauri debug build.
 
 ## Crate ownership
 
-- `agentguard-core`: validated repository-relative paths, session IDs, command argv, capability descriptions, and shared errors.
-- `agentguard-policy`: strict TOML policy parsing/compilation and metadata-only repository scanning.
-- `agentguard-git`: read-only source Git snapshots, synthesized-baseline initialization, and generated-workspace diff summaries.
-- `agentguard-runtime`: workspace construction from a caller-supplied visibility callback, minimal environments, local execution, and Docker argv/execution.
-- `agentguard-receipt`: receipt model, atomic JSON persistence, command sanitization, and terminal/JSON/Markdown renderers.
-- `agentguard-cli`: command parsing and end-to-end orchestration; it enforces exact command allowlist matching.
+- `repolatch-core`: validated repository-relative paths, session IDs, command argv, capability descriptions, and shared errors.
+- `repolatch-policy`: strict TOML policy parsing/compilation and metadata-only repository scanning.
+- `repolatch-git`: read-only source Git snapshots, synthesized-baseline initialization, and generated-workspace diff summaries.
+- `repolatch-runtime`: workspace construction from a caller-supplied visibility callback, minimal environments, local execution, and Docker argv/execution.
+- `repolatch-receipt`: receipt model, atomic JSON persistence, command sanitization, and terminal/JSON/Markdown renderers.
+- `repolatch-cli`: command parsing and end-to-end orchestration; it enforces exact command allowlist matching.
 - `apps/desktop`: local Tauri command adapters and React views; it has its own Cargo workspace rather than being a root member.
 
-Dependencies point toward `agentguard-core`. Runtime does not directly depend on policy, Git, or receipt; the CLI and desktop adapter connect them.
+Dependencies point toward `repolatch-core`. Runtime does not directly depend on policy, Git, or receipt; the CLI and desktop adapter connect them.
 
 ## Implemented boundaries
 
@@ -41,7 +41,7 @@ Dependencies point toward `agentguard-core`. Runtime does not directly depend on
 
 `DockerBackend` constructs a fixed `docker run` argv with one generated-workspace bind mount and conditionally adds `--network none` for a deny policy; it does not use a shell. It clears its launch environment except for a fixed PATH and executes a provided argv. `LocalBackend` also clears the environment and runs in the generated workspace, but is advisory for filesystem isolation and cannot enforce network denial because it runs as the current OS user.
 
-`agentguard-git` uses Git subprocesses with hooks, attributes, system config, prompts, external diffs, and text conversions disabled. It can initialize a new baseline repository in a generated workspace and summarize later changes. Callers must invoke that baseline function explicitly after building the workspace.
+`repolatch-git` uses Git subprocesses with hooks, attributes, system config, prompts, external diffs, and text conversions disabled. It can initialize a new baseline repository in a generated workspace and summarize later changes. Callers must invoke that baseline function explicitly after building the workspace.
 
 The CLI and desktop write a partial receipt before backend execution and finalize it after an observed outcome or execution error. Runtime remains receipt-agnostic.
 

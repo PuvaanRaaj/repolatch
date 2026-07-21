@@ -9,11 +9,11 @@ rust-version = "1.88"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-agentguard-core = { path = "crates/agentguard-core" }
-agentguard-policy = { path = "crates/agentguard-policy" }
-agentguard-git = { path = "crates/agentguard-git" }
-agentguard-runtime = { path = "crates/agentguard-runtime" }
-agentguard-receipt = { path = "crates/agentguard-receipt" }
+repolatch-core = { path = "crates/repolatch-core" }
+repolatch-policy = { path = "crates/repolatch-policy" }
+repolatch-git = { path = "crates/repolatch-git" }
+repolatch-runtime = { path = "crates/repolatch-runtime" }
+repolatch-receipt = { path = "crates/repolatch-receipt" }
 anyhow = "1.0"
 assert_cmd = "2.0"
 clap = { version = "4.5", features = ["derive"] }

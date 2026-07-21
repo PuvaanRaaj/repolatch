@@ -4,5 +4,5 @@
 /apps/desktop/src-tauri/gen/
 /apps/desktop/src-tauri/target/
 /artifacts/
-/.agentguard/
+/.repolatch/
 .DS_Store

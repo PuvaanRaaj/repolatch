@@ -1,6 +1,6 @@
 # Policy reference
 
-AgentGuard policy version 1 is strict TOML. The parser rejects unknown fields, unsupported versions, malformed globs, empty/NUL command entries, empty or whitespace-containing host entries, absolute globs, backslashes, and glob path components equal to `..`.
+RepoLatch policy version 1 is strict TOML. The parser rejects unknown fields, unsupported versions, malformed globs, empty/NUL command entries, empty or whitespace-containing host entries, absolute globs, backslashes, and glob path components equal to `..`.
 
 ## Complete example
 

@@ -1,6 +1,6 @@
-# Contributing to AgentGuard
+# Contributing to RepoLatch
 
-Thank you for helping improve the project. AgentGuard treats repository contents and launched commands as untrusted, so changes to policy, workspace construction, execution, receipts, or security claims need small, reviewable diffs and matching tests.
+Thank you for helping improve the project. RepoLatch treats repository contents and launched commands as untrusted, so changes to policy, workspace construction, execution, receipts, or security claims need small, reviewable diffs and matching tests.
 
 ## Setup
 

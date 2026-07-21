@@ -1,23 +1,23 @@
 [package]
-name = "agentguard-desktop"
+name = "repolatch-desktop"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 publish = false
 
 [lib]
-name = "agentguard_desktop_lib"
+name = "repolatch_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-agentguard-core = { path = "../../../crates/agentguard-core" }
-agentguard-policy = { path = "../../../crates/agentguard-policy" }
-agentguard-git = { path = "../../../crates/agentguard-git" }
-agentguard-runtime = { path = "../../../crates/agentguard-runtime" }
-agentguard-receipt = { path = "../../../crates/agentguard-receipt" }
+repolatch-core = { path = "../../../crates/repolatch-core" }
+repolatch-policy = { path = "../../../crates/repolatch-policy" }
+repolatch-git = { path = "../../../crates/repolatch-git" }
+repolatch-runtime = { path = "../../../crates/repolatch-runtime" }
+repolatch-receipt = { path = "../../../crates/repolatch-receipt" }
 libc = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

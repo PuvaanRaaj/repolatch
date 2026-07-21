@@ -1,4 +1,4 @@
-# AgentGuard Threat Model
+# RepoLatch Threat Model
 
 **Status:** MVP security baseline
 **Date:** 2026-07-20
@@ -15,7 +15,7 @@
 
 The launched agent command and repository content are untrusted. They may run arbitrary subprocesses, attempt path traversal or symlink escape, mutate visible files, execute malicious build hooks, poison terminal output, probe inherited environment variables, and exfiltrate through any deliberately permitted credential or network route.
 
-The developer, AgentGuard binary, host operating system, Docker daemon/Desktop VM, and explicitly selected container image are trusted for the MVP. Protection from another hostile process already running as the same OS user is not claimed.
+The developer, RepoLatch binary, host operating system, Docker daemon/Desktop VM, and explicitly selected container image are trusted for the MVP. Protection from another hostile process already running as the same OS user is not claimed.
 
 ## Security invariants
 
@@ -26,7 +26,7 @@ The developer, AgentGuard binary, host operating system, Docker daemon/Desktop V
 5. Host environment inheritance is disabled; only documented names and explicitly approved values may pass.
 6. Home, Docker socket, credential directories, devices, and arbitrary host resources are not mounted in the MVP.
 7. Inspection and staging never execute repository hooks, filters, scripts, Dockerfiles, or configuration.
-8. Receipts and normal AgentGuard logs contain metadata, not secret values, file contents, full environment dumps, or terminal transcripts.
+8. Receipts and normal RepoLatch logs contain metadata, not secret values, file contents, full environment dumps, or terminal transcripts.
 9. Docker unavailability fails an enforced request; there is no silent downgrade.
 10. Every enforcement claim is scoped to a backend capability and backed by a test.
 
@@ -57,7 +57,7 @@ The Docker builder emits a fixed option set: generated workspace only, no host n
 
 ### Environment and authentication
 
-AgentGuard does not inherit the host environment wholesale and does not automatically locate or mount provider authentication. Future credential resources must be explicit and independently reviewed. Names and scopes may be receipted; values may not. Authenticated network sessions necessarily expand the exfiltration boundary.
+RepoLatch does not inherit the host environment wholesale and does not automatically locate or mount provider authentication. Future credential resources must be explicit and independently reviewed. Names and scopes may be receipted; values may not. Authenticated network sessions necessarily expand the exfiltration boundary.
 
 ### Malicious repository content
 
@@ -65,7 +65,7 @@ Inspection and staging treat the repository as data. Git hooks, filters, package
 
 ### Logs and receipts
 
-Arbitrary output cannot be reliably redacted. AgentGuard therefore uses live process I/O without a durable transcript by default. Receipts store the top-level command after argument redaction, aggregate path information, and diff metadata. Sensitive content and environment values are excluded.
+Arbitrary output cannot be reliably redacted. RepoLatch therefore uses live process I/O without a durable transcript by default. Receipts store the top-level command after argument redaction, aggregate path information, and diff metadata. Sensitive content and environment values are excluded.
 
 ## Residual risks
 
@@ -74,7 +74,7 @@ Arbitrary output cannot be reliably redacted. AgentGuard therefore uses live pro
 - Container image pulls occur outside the container's `none` network and are not evidence of workload network access.
 - Disk quotas for bind-mounted workspace data are not strongly enforced in the MVP.
 - A user-approved credential or future network route can be abused by the launched command.
-- AgentGuard cannot enumerate every child command, file read, or network attempt without stronger instrumentation.
+- RepoLatch cannot enumerate every child command, file read, or network attempt without stronger instrumentation.
 
 ## Required proof tests
 

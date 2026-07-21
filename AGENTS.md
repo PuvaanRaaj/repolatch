@@ -1,4 +1,4 @@
-# AgentGuard contributor guidance
+# RepoLatch contributor guidance
 
 ## Architectural invariants
 
@@ -12,12 +12,12 @@
 
 ## Crate ownership
 
-- `agentguard-core`: validated paths and shared domain types.
-- `agentguard-policy`: policy parsing, matching, scanning, sensitive classifications.
-- `agentguard-git`: source snapshots and synthesized-workspace diffs.
-- `agentguard-receipt`: receipt model, persistence, and renderers.
-- `agentguard-runtime`: workspace construction and execution backends.
-- `agentguard-cli`: CLI parsing and presentation.
+- `repolatch-core`: validated paths and shared domain types.
+- `repolatch-policy`: policy parsing, matching, scanning, sensitive classifications.
+- `repolatch-git`: source snapshots and synthesized-workspace diffs.
+- `repolatch-receipt`: receipt model, persistence, and renderers.
+- `repolatch-runtime`: workspace construction and execution backends.
+- `repolatch-cli`: CLI parsing and presentation.
 - `apps/desktop`: Tauri adapters and offline desktop UI.
 
 Dependencies point toward core; presentation code must not become a library dependency. Add a backend only through the runtime trait, publish independent capabilities, fail closed when required controls are unavailable, and add tests for every enforcement claim.

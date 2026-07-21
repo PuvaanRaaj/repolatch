@@ -1,0 +1,19 @@
+[package]
+name = "repolatch-policy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+repolatch-core.workspace = true
+globset.workspace = true
+ignore.workspace = true
+serde.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

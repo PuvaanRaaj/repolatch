@@ -25,18 +25,18 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux-x86_64
-            package: agentguard-cli-linux-x86_64.tar.gz
+            package: repolatch-cli-linux-x86_64.tar.gz
           - os: macos-latest
             platform: macos-arm64
-            package: agentguard-cli-macos-arm64.tar.gz
+            package: repolatch-cli-macos-arm64.tar.gz
           - os: windows-latest
             platform: windows-x86_64
-            package: agentguard-cli-windows-x86_64.zip
+            package: repolatch-cli-windows-x86_64.zip
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.88
       - name: Build CLI
-        run: cargo build --locked --release -p agentguard-cli
+        run: cargo build --locked --release -p repolatch-cli
       - name: Create CLI package
         shell: bash
         env:
@@ -45,11 +45,11 @@ jobs:
           mkdir -p package dist
           cp LICENSE README.md package/
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp target/release/agentguard.exe package/
+            cp target/release/repolatch.exe package/
             (cd package && 7z a "../dist/$PACKAGE_NAME" ./*)
           else
-            cp target/release/agentguard package/
-            chmod +x package/agentguard
+            cp target/release/repolatch package/
+            chmod +x package/repolatch
             tar -C package -czf "dist/$PACKAGE_NAME" .
           fi
       - uses: actions/upload-artifact@v7
@@ -109,16 +109,16 @@ jobs:
 
           case "$RUNNER_OS" in
             Linux)
-              copy_one '*.AppImage' agentguard-desktop-linux-x86_64.AppImage
-              copy_one '*.deb' agentguard-desktop-linux-x86_64.deb
-              copy_one '*.rpm' agentguard-desktop-linux-x86_64.rpm
+              copy_one '*.AppImage' repolatch-desktop-linux-x86_64.AppImage
+              copy_one '*.deb' repolatch-desktop-linux-x86_64.deb
+              copy_one '*.rpm' repolatch-desktop-linux-x86_64.rpm
               ;;
             macOS)
-              copy_one '*.dmg' agentguard-desktop-macos-arm64.dmg
+              copy_one '*.dmg' repolatch-desktop-macos-arm64.dmg
               ;;
             Windows)
-              copy_one '*.msi' agentguard-desktop-windows-x86_64.msi
-              copy_one '*-setup.exe' agentguard-desktop-windows-x86_64-setup.exe
+              copy_one '*.msi' repolatch-desktop-windows-x86_64.msi
+              copy_one '*-setup.exe' repolatch-desktop-windows-x86_64-setup.exe
               ;;
           esac
       - uses: actions/upload-artifact@v7
@@ -150,15 +150,15 @@ jobs:
         run: |
           set -euo pipefail
           expected=(
-            agentguard-cli-linux-x86_64.tar.gz
-            agentguard-cli-macos-arm64.tar.gz
-            agentguard-cli-windows-x86_64.zip
-            agentguard-desktop-linux-x86_64.AppImage
-            agentguard-desktop-linux-x86_64.deb
-            agentguard-desktop-linux-x86_64.rpm
-            agentguard-desktop-macos-arm64.dmg
-            agentguard-desktop-windows-x86_64.msi
-            agentguard-desktop-windows-x86_64-setup.exe
+            repolatch-cli-linux-x86_64.tar.gz
+            repolatch-cli-macos-arm64.tar.gz
+            repolatch-cli-windows-x86_64.zip
+            repolatch-desktop-linux-x86_64.AppImage
+            repolatch-desktop-linux-x86_64.deb
+            repolatch-desktop-linux-x86_64.rpm
+            repolatch-desktop-macos-arm64.dmg
+            repolatch-desktop-windows-x86_64.msi
+            repolatch-desktop-windows-x86_64-setup.exe
           )
           for package_name in "${expected[@]}"; do
             test -s "release-assets/$package_name"
@@ -199,15 +199,15 @@ jobs:
             echo
             echo "| File | Description |"
             echo "| --- | --- |"
-            echo "| **agentguard-cli-linux-x86_64.tar.gz** | AgentGuard CLI for 64-bit Linux. |"
-            echo "| **agentguard-cli-macos-arm64.tar.gz** | AgentGuard CLI for Apple silicon Macs. |"
-            echo "| **agentguard-cli-windows-x86_64.zip** | AgentGuard CLI for 64-bit Windows. |"
-            echo "| **agentguard-desktop-linux-x86_64.AppImage** | Portable Linux desktop application. |"
-            echo "| **agentguard-desktop-linux-x86_64.deb** | Desktop package for Debian and Ubuntu systems. |"
-            echo "| **agentguard-desktop-linux-x86_64.rpm** | Desktop package for RPM-based Linux systems. |"
-            echo "| **agentguard-desktop-macos-arm64.dmg** | macOS disk image for Apple silicon Macs. |"
-            echo "| **agentguard-desktop-windows-x86_64.msi** | Windows MSI installer. |"
-            echo "| **agentguard-desktop-windows-x86_64-setup.exe** | Windows NSIS installer. |"
+            echo "| **repolatch-cli-linux-x86_64.tar.gz** | RepoLatch CLI for 64-bit Linux. |"
+            echo "| **repolatch-cli-macos-arm64.tar.gz** | RepoLatch CLI for Apple silicon Macs. |"
+            echo "| **repolatch-cli-windows-x86_64.zip** | RepoLatch CLI for 64-bit Windows. |"
+            echo "| **repolatch-desktop-linux-x86_64.AppImage** | Portable Linux desktop application. |"
+            echo "| **repolatch-desktop-linux-x86_64.deb** | Desktop package for Debian and Ubuntu systems. |"
+            echo "| **repolatch-desktop-linux-x86_64.rpm** | Desktop package for RPM-based Linux systems. |"
+            echo "| **repolatch-desktop-macos-arm64.dmg** | macOS disk image for Apple silicon Macs. |"
+            echo "| **repolatch-desktop-windows-x86_64.msi** | Windows MSI installer. |"
+            echo "| **repolatch-desktop-windows-x86_64-setup.exe** | Windows NSIS installer. |"
             echo "| **SHA256SUMS.txt** | SHA-256 checksums for every package above. |"
             echo
             echo "## Changes"
@@ -224,7 +224,7 @@ jobs:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
-          title="AgentGuard main build #$GITHUB_RUN_NUMBER ($(git rev-parse --short=7 "$GITHUB_SHA"))"
+          title="RepoLatch main build #$GITHUB_RUN_NUMBER ($(git rev-parse --short=7 "$GITHUB_SHA"))"
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" release-assets/* --clobber
             gh release edit "$RELEASE_TAG" --title "$title" --notes-file release-notes.md --prerelease --latest=false

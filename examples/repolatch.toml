@@ -1,0 +1,21 @@
+# RepoLatch policy schema v1. Deny rules always take precedence.
+version = 1
+
+[filesystem]
+# Unmatched files are invisible. `write` also grants read visibility.
+read = ["src/**", "tests/**", "docs/**", "Cargo.toml", "README.md"]
+write = ["src/**", "tests/**"]
+deny = [".env", ".env.*", "credentials/**", "production/**", "**/*.pem", "**/*.key", ".ssh/**", "**/.ssh/**", ".aws/credentials", "**/.aws/credentials", ".npmrc", "**/.npmrc", ".pypirc", "**/.pypirc", ".netrc", "**/.netrc"]
+
+[network]
+# Parsed policy metadata. The current Docker backend always uses network none;
+# local execution cannot constrain networking.
+mode = "deny"
+
+[network.allow]
+# Hostnames are validated and retained but are not enforced by current backends.
+hosts = ["registry.npmjs.org", "crates.io"]
+
+[commands]
+# Parsed/queryable by repolatch-policy. An embedding application must enforce it.
+allow = ["cargo test", "cargo fmt", "cargo clippy", "codex", "claude", "opencode"]

@@ -1,3 +1,3 @@
 fn main() {
-    agentguard_desktop_lib::run();
+    repolatch_desktop_lib::run();
 }

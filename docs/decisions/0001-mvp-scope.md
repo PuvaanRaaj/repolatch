@@ -1,11 +1,11 @@
-# ADR 0001: AgentGuard MVP scope and enforcement boundary
+# ADR 0001: RepoLatch MVP scope and enforcement boundary
 
 **Status:** Accepted
 **Date:** 2026-07-20
 
 ## Context
 
-AgentGuard must supervise arbitrary coding-agent commands while making accurate security claims on macOS. A same-user subprocess cannot be a secure filesystem sandbox. Copying the source repository's `.git` directory would also preserve objects containing denied files. Standard Docker networking supports reliable on/off isolation but not hostname allowlisting.
+RepoLatch must supervise arbitrary coding-agent commands while making accurate security claims on macOS. A same-user subprocess cannot be a secure filesystem sandbox. Copying the source repository's `.git` directory would also preserve objects containing denied files. Standard Docker networking supports reliable on/off isolation but not hostname allowlisting.
 
 ## Decision
 

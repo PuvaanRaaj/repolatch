@@ -8,29 +8,28 @@ use std::{
     sync::Mutex,
 };
 
-use agentguard_core::{BackendCapabilities, CommandSpec, RelativeRepoPath, RepoRoot, SessionId};
-use agentguard_git::{
+use repolatch_core::{BackendCapabilities, CommandSpec, RelativeRepoPath, RepoRoot, SessionId};
+use repolatch_git::{
     DiffSummary, initialize_visible_baseline, snapshot_source, summarize_workspace_diff,
 };
-use agentguard_policy::{
+use repolatch_policy::{
     Access, AccessDecision, CompiledPolicy, DEFAULT_POLICY_TEMPLATE, NetworkMode, ScanOptions,
-    compile_policy, scan_repository,
+    ScanWarning, compile_policy, scan_repository,
 };
-use agentguard_receipt::{
+use repolatch_receipt::{
     BackendReceipt, PathSummary, Receipt, ReceiptStart, ReceiptStatus, ReceiptWriter,
     SourceReceipt, policy_sha256, render_json, render_markdown, render_terminal,
 };
-use agentguard_runtime::{
+use repolatch_runtime::{
     DockerBackend, ExecutionBackend, ExecutionRequest, LocalBackend, MinimalEnvironment,
     NetworkAccess, WorkspaceBuilder,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
-use tauri_plugin_dialog::DialogExt;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
-const POLICY_FILE: &str = "agentguard.toml";
-const MAX_TREE_ENTRIES: usize = 10_000;
+const POLICY_FILE: &str = "repolatch.toml";
+const MAX_TREE_ENTRIES: usize = 2_000;
 const MAX_PREVIEW_BYTES: u64 = 256 * 1024;
 const MAX_DIFF_BYTES: usize = 512 * 1024;
 
@@ -82,6 +81,7 @@ struct TextPreview {
     content: Option<String>,
     message: String,
     bytes: Option<u64>,
+    editable: bool,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -145,6 +145,31 @@ fn read_bounded_regular_file(path: &Path) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+fn write_bounded_regular_file(path: &Path, content: &str) -> Result<(), String> {
+    if content.len() as u64 > MAX_PREVIEW_BYTES {
+        return Err("Edit rejected: file exceeds 256 KiB.".to_owned());
+    }
+    #[cfg(unix)]
+    let mut file = {
+        use std::os::unix::fs::OpenOptionsExt;
+        fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(path)
+            .map_err(err)?
+    };
+    #[cfg(not(unix))]
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(path)
+        .map_err(err)?;
+
+    file.write_all(content.as_bytes()).map_err(err)?;
+    file.sync_all().map_err(err)
+}
+
 fn validated_preview_path(root: &RepoRoot, relative: &RelativeRepoPath) -> Result<PathBuf, String> {
     let mut current = root.as_path().to_path_buf();
     for component in relative.as_path().components() {
@@ -176,7 +201,7 @@ fn atomic_write_policy(path: &Path, source: &str) -> Result<(), String> {
     let parent = path
         .parent()
         .ok_or_else(|| "Policy path has no parent.".to_owned())?;
-    let temporary = parent.join(format!(".agentguard-policy-{}.tmp", SessionId::new()));
+    let temporary = parent.join(format!(".repolatch-policy-{}.tmp", SessionId::new()));
     let write_result = (|| {
         let mut file = fs::OpenOptions::new()
             .create_new(true)
@@ -209,6 +234,23 @@ fn access_name(access: AccessDecision) -> String {
         AccessDecision::Unmatched => "unmatched",
     }
     .to_owned()
+}
+fn scan_warning_message(warning: ScanWarning) -> String {
+    match warning {
+        ScanWarning::SymlinkOmitted { path } => {
+            format!("Symlink omitted: {}", path.display())
+        }
+        ScanWarning::InvalidPathOmitted { path } => {
+            format!("Path omitted because it could not be represented safely: {}", path.display())
+        }
+        ScanWarning::EntryLimitReached { limit } => {
+            format!("Showing the first {limit} repository entries.")
+        }
+        ScanWarning::GitMetadataUnavailable { detail } => {
+            format!("Git metadata is unavailable: {detail}")
+        }
+        ScanWarning::WalkError { detail } => format!("Repository scan warning: {detail}"),
+    }
 }
 fn has_sensitive(path: &RelativeRepoPath, policy: &CompiledPolicy) -> bool {
     let value = path.as_str();
@@ -260,20 +302,13 @@ fn is_session_id(id: &str) -> bool {
 }
 
 #[tauri::command]
-fn select_repository(
-    app: AppHandle,
+fn select_repository_path(
     state: State<'_, DesktopState>,
-) -> Result<Option<String>, String> {
-    let selected = app.dialog().file().blocking_pick_folder();
-    let Some(path) = selected else {
-        return Ok(None);
-    };
-    let selected_path = path
-        .as_path()
-        .ok_or_else(|| "Selected folder path is not available on this platform.".to_owned())?;
-    let root = RepoRoot::discover(selected_path).map_err(err)?;
+    path: String,
+) -> Result<String, String> {
+    let root = RepoRoot::discover(path).map_err(err)?;
     *state.repository.lock().map_err(err)? = Some(root.as_path().to_path_buf());
-    Ok(Some(root.as_path().display().to_string()))
+    Ok(root.as_path().display().to_string())
 }
 
 #[tauri::command]
@@ -304,8 +339,14 @@ fn open_repository(state: State<'_, DesktopState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn repository_tree(state: State<'_, DesktopState>) -> Result<RepositoryView, String> {
+async fn repository_tree(state: State<'_, DesktopState>) -> Result<RepositoryView, String> {
     let root = selected_root(&state)?;
+    tauri::async_runtime::spawn_blocking(move || build_repository_view(root))
+        .await
+        .map_err(err)?
+}
+
+fn build_repository_view(root: RepoRoot) -> Result<RepositoryView, String> {
     let (_, policy) = load_policy(&root)?;
     let scan = scan_repository(
         &root,
@@ -313,6 +354,7 @@ fn repository_tree(state: State<'_, DesktopState>) -> Result<RepositoryView, Str
         ScanOptions {
             max_entries: MAX_TREE_ENTRIES,
             annotate_git: true,
+            respect_gitignore: true,
         },
     );
     let snapshot = snapshot_source(root.as_path()).map_err(err)?;
@@ -339,7 +381,7 @@ fn repository_tree(state: State<'_, DesktopState>) -> Result<RepositoryView, Str
         warnings: scan
             .warnings
             .into_iter()
-            .map(|w| format!("{w:?}"))
+            .map(scan_warning_message)
             .collect(),
         git: GitView {
             head: snapshot.head,
@@ -412,6 +454,7 @@ fn file_preview(
             content: None,
             message: "Only regular files can be previewed.".to_owned(),
             bytes: None,
+            editable: false,
         });
     }
     if metadata.len() > MAX_PREVIEW_BYTES {
@@ -420,6 +463,7 @@ fn file_preview(
             content: None,
             message: "Preview withheld: file exceeds 256 KiB.".to_owned(),
             bytes: Some(metadata.len()),
+            editable: false,
         });
     }
     if has_sensitive(&relative, &policy) {
@@ -438,6 +482,7 @@ fn file_preview(
                 content: Some(keys),
                 message: "Environment values are masked.".to_owned(),
                 bytes: Some(metadata.len()),
+                editable: false,
             });
         }
         return Ok(TextPreview {
@@ -445,6 +490,7 @@ fn file_preview(
             content: None,
             message: "Sensitive or policy-denied content is withheld.".to_owned(),
             bytes: Some(metadata.len()),
+            editable: false,
         });
     }
     if policy.evaluate(&relative, Access::Read) != AccessDecision::Allowed {
@@ -453,6 +499,7 @@ fn file_preview(
             content: None,
             message: "The policy does not allow reading this file.".to_owned(),
             bytes: Some(metadata.len()),
+            editable: false,
         });
     }
     let bytes = read_bounded_regular_file(&path)?;
@@ -462,6 +509,7 @@ fn file_preview(
             content: None,
             message: "Binary content is not previewed.".to_owned(),
             bytes: Some(metadata.len()),
+            editable: false,
         });
     }
     let content =
@@ -471,13 +519,42 @@ fn file_preview(
         content: Some(content),
         message: "Read-only preview.".to_owned(),
         bytes: Some(metadata.len()),
+        editable: policy.evaluate(&relative, Access::Write) == AccessDecision::Allowed,
     })
+}
+
+#[tauri::command]
+fn file_save(
+    state: State<'_, DesktopState>,
+    relative_path: String,
+    content: String,
+    confirm_edit: bool,
+) -> Result<TextPreview, String> {
+    if !confirm_edit {
+        return Err("File edits require an explicit edit action.".to_owned());
+    }
+    let root = selected_root(&state)?;
+    let (_, policy) = load_policy(&root)?;
+    let relative = RelativeRepoPath::new(&relative_path).map_err(err)?;
+    if has_sensitive(&relative, &policy) {
+        return Err("Sensitive or policy-denied files cannot be edited.".to_owned());
+    }
+    if policy.evaluate(&relative, Access::Write) != AccessDecision::Allowed {
+        return Err("The policy does not allow writing this file.".to_owned());
+    }
+    let path = validated_preview_path(&root, &relative)?;
+    let metadata = fs::symlink_metadata(&path).map_err(err)?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("Only existing regular files can be edited.".to_owned());
+    }
+    write_bounded_regular_file(&path, &content)?;
+    file_preview(state, relative_path)
 }
 
 #[tauri::command]
 fn backend_status() -> Result<Vec<BackendView>, String> {
     let local = LocalBackend;
-    let docker = DockerBackend::new("docker", "agentguard/runtime:latest").map_err(err)?;
+    let docker = DockerBackend::new("docker", "repolatch/runtime:latest").map_err(err)?;
     Ok(vec![backend_view(&local), backend_view(&docker)])
 }
 fn backend_view<B: ExecutionBackend>(backend: &B) -> BackendView {
@@ -585,7 +662,7 @@ fn launch_workspace(
         .filter(|item| {
             matches!(
                 item.reason,
-                agentguard_runtime::OmissionReason::DeniedByPolicy
+                repolatch_runtime::OmissionReason::DeniedByPolicy
             )
         })
         .filter_map(|item| RelativeRepoPath::new(&item.path).ok())
@@ -734,19 +811,20 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(DesktopState::default())
         .invoke_handler(tauri::generate_handler![
-            select_repository,
+            select_repository_path,
             open_repository,
             repository_tree,
             policy_load,
             policy_save,
             file_preview,
+            file_save,
             backend_status,
             launch_workspace,
             session_diff,
             receipt_load
         ])
         .run(tauri::generate_context!())
-        .expect("error while running AgentGuard desktop");
+        .expect("error while running RepoLatch desktop");
 }
 
 #[cfg(test)]
@@ -791,10 +869,45 @@ mod tests {
     }
 
     #[test]
+    fn bounded_file_write_updates_regular_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("editable.txt");
+        fs::write(&path, "before").unwrap();
+
+        write_bounded_regular_file(&path, "after\n").unwrap();
+
+        assert_eq!(fs::read_to_string(path).unwrap(), "after\n");
+    }
+
+    #[test]
+    fn bounded_file_write_rejects_large_content() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("editable.txt");
+        fs::write(&path, "before").unwrap();
+        let too_large = "x".repeat(MAX_PREVIEW_BYTES as usize + 1);
+
+        assert!(write_bounded_regular_file(&path, &too_large).is_err());
+        assert_eq!(fs::read_to_string(path).unwrap(), "before");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_file_write_does_not_follow_symlinks() {
+        let directory = tempfile::tempdir().unwrap();
+        let target = directory.path().join("target.txt");
+        let link = directory.path().join("editable.txt");
+        fs::write(&target, "unchanged").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        assert!(write_bounded_regular_file(&link, "replacement").is_err());
+        assert_eq!(fs::read_to_string(target).unwrap(), "unchanged");
+    }
+
+    #[test]
     fn policy_write_preserves_unrelated_predictable_temp_file() {
         let repository = tempfile::tempdir().unwrap();
-        let policy = repository.path().join("agentguard.toml");
-        let sentinel = repository.path().join("agentguard.toml.tmp");
+        let policy = repository.path().join("repolatch.toml");
+        let sentinel = repository.path().join("repolatch.toml.tmp");
         fs::write(&sentinel, "editor sentinel").unwrap();
         atomic_write_policy(&policy, DEFAULT_POLICY_TEMPLATE).unwrap();
         assert_eq!(fs::read_to_string(sentinel).unwrap(), "editor sentinel");

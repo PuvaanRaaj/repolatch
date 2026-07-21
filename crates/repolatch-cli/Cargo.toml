@@ -1,0 +1,30 @@
+[package]
+name = "repolatch-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "repolatch"
+path = "src/main.rs"
+
+[dependencies]
+repolatch-core.workspace = true
+repolatch-git.workspace = true
+repolatch-policy.workspace = true
+repolatch-receipt.workspace = true
+repolatch-runtime.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+predicates.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

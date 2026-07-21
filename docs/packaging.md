@@ -2,9 +2,9 @@
 
 ## Current state
 
-The workspace declares Apache-2.0 licensing, version `0.1.0`, Rust edition 2024, and a minimum Rust version of 1.88 for five library crates and the `agentguard` CLI. A private Tauri desktop application lives in `apps/desktop`; its 2026-07-20 local debug build produced an app bundle and an 8.7 MB DMG. These are local debug artifacts, not signed or published releases. The repository has no release automation, package registry configuration, or publication workflow.
+The workspace declares Apache-2.0 licensing, version `0.1.0`, Rust edition 2024, and a minimum Rust version of 1.88 for five library crates and the `repolatch` CLI. A private Tauri desktop application lives in `apps/desktop`; its local debug build produces a macOS app bundle and DMG.
 
-No package has been published or is being published by this repository. This document intentionally contains no registry, download, or remote repository URLs.
+Every successful push to `main` runs the release workflow and publishes an unsigned GitHub prerelease containing the CLI and desktop packages listed in [release-packages.md](release-packages.md). No crate or npm package is published to a package registry. The public repository is <https://github.com/PuvaanRaaj/repolatch>.
 
 ## Before publishing
 

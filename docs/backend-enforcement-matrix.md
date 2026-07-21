@@ -21,4 +21,4 @@ These claims have unit coverage plus a live macOS/Docker Desktop 29.6.1 test pro
 
 ## macOS storage and I/O
 
-AgentGuard is a native application. Only the selected command runs in Docker. The current backend bind-mounts the generated policy-filtered workspace, never the original repository. This preserves host-side diff review but can be slower on large repositories because Docker Desktop mediates filesystem I/O through its Linux VM. Native advisory execution avoids that overhead. Moving container sessions to a Docker named volume with one-time import/export is future work.
+RepoLatch is a native application. Only the selected command runs in Docker. The current backend bind-mounts the generated policy-filtered workspace, never the original repository. This preserves host-side diff review but can be slower on large repositories because Docker Desktop mediates filesystem I/O through its Linux VM. Native advisory execution avoids that overhead. Moving container sessions to a Docker named volume with one-time import/export is future work.
